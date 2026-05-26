@@ -1,19 +1,20 @@
 import pygame
 
+from playlists import playlist_test
+
 class Sprite(pygame.sprite.Sprite):
     def __init__(self, pos, sprite, groups):
         super().__init__(groups)
         self.image = sprite
         self.rect = self.image.get_frect(center=pos)
 
-class Projectile(Sprite):
+class TapNote(Sprite):
     def __init__(self, master, origin, sprite, groups, origin_time):
         super().__init__(master.ORIGINS[origin], sprite, groups)
         self.origin = origin
         self.master = master
         self.origin_time = origin_time
         self.hitbox_rect = self.rect.inflate(80, 80)
-        self.triggered = False
 
     def move(self):
         BPM = self.master.bpm
@@ -35,19 +36,21 @@ class BeatLine(Sprite):
     def __init__(self, master, pos, sprite, groups):
         super().__init__(pos, sprite, groups)
 
-class ProjectileMaster:
+class NoteMaster:
     ORIGINS = [(200, -50), (300, -50), (400, -50), (500, -50), (600, -50)]
     ORIGINS_BINDS = [pygame.K_a, pygame.K_s, pygame.K_d, pygame.K_f, pygame.K_g]
 
     def __init__(self, game):
         self.game = game
-        self.projectiles = pygame.sprite.Group()
+        self.notes = pygame.sprite.Group()
+
         self.bpm = 104
-        self.beat_duration = 60 / self.bpm
-        self.cur_beat = 0
+        self.beat_duration = 60 / (self.bpm*4)
+        self.current_beat = 0
         self.next_beat_time = 0.0
-        self.score = 0
-        self.playlist = game.playlist1
+
+        self.playlist = playlist_test
+
         self.key_cooldowns = {k: 0.0 for k in self.ORIGINS_BINDS}
         self.input_cooldown = 0.25
         self.hit_window = 100
@@ -60,23 +63,23 @@ class ProjectileMaster:
         pygame.mixer.music.set_volume(0.5)
 
     def update_beats(self, current_song_time):
-        while self.cur_beat < len(self.playlist) and current_song_time >= self.next_beat_time:
+        while self.current_beat < len(self.playlist) and current_song_time >= self.next_beat_time:
             self._spawn_current_beat()
-            beat_count, _ = self.playlist[self.cur_beat]
-            self.next_beat_time += beat_count * self.beat_duration/4
-            self.cur_beat += 1
+            beat_count, _ = self.playlist[self.current_beat]
+            self.next_beat_time += beat_count * self.beat_duration
+            self.current_beat += 1
 
     def _spawn_current_beat(self):
-        if self.cur_beat >= len(self.playlist):
+        if self.current_beat >= len(self.playlist):
             return
-        _, lanes = self.playlist[self.cur_beat]
+        _, lanes = self.playlist[self.current_beat]
         current_time = pygame.mixer.music.get_pos() / 1000.0
         for i, active in enumerate(lanes):
             if active:
-                self.spawn_projectile(i, current_time)
+                self._spawn_TapNote(i, current_time)
 
-    def spawn_projectile(self, origin, current_time):
-        Projectile(self, origin, self.game.ph_image, (self.projectiles, self.game.all_sprites), current_time)
+    def _spawn_TapNote(self, origin, current_time):
+        TapNote(self, origin, self.game.ph_image, (self.notes, self.game.all_sprites), current_time)
 
     def handle_input(self, key, current_time):
         if current_time < self.key_cooldowns[key]:
@@ -87,60 +90,106 @@ class ProjectileMaster:
         closest_proj = None
         min_dist = float('inf')
 
-        for proj in self.projectiles.sprites():
-            if proj.origin == origin_idx and not proj.triggered:
+        for proj in self.notes.sprites():
+            if proj.origin == origin_idx:
                 dist = abs(proj.hitbox_rect.centery - target_y)
                 if dist < min_dist and dist <= self.hit_window:
                     min_dist = dist
                     closest_proj = proj
 
         if closest_proj:
-            closest_proj.triggered = True
             closest_proj.kill()
-            self.score += 20
+            self.game.score_master.judge(min_dist)
             self.key_cooldowns[key] = current_time + self.input_cooldown
 
     def check_misses(self):
-        for proj in self.projectiles.sprites():
-            if not proj.triggered and proj.hitbox_rect.bottom > self.miss_line.top:
-                proj.triggered = True
+        for proj in self.notes.sprites():
+            if proj.hitbox_rect.bottom > self.miss_line.top:
                 proj.kill()
-                self.score = 0
+                self.game.score_master.judge(-1)
+
+class ScoreMaster:
+    GRADES = {
+        'perfect': {
+            'hit_window': 40.0,
+            'score': 50, 
+            },
+        'good': {
+            'hit_window': 60.0,
+            'score': 25, 
+            },
+        'normal': {
+            'hit_window': 100.0,
+            'score': 10, 
+            },
+        'miss': {
+            'hit_window': -1.0,
+            'score': 0, 
+            },
+        }
+    
+    COMBOS = {
+        0: 1,
+        10: 1.5,
+        30: 2,
+        50: 3,
+    }
+
+    def __init__(self, game):
+        self.game = game
+        self.score = 0
+        self.combo_counter = 0
+        self.combo_modifier = 1
+        self.last_grade = ''
+
+    def judge(self, distance):
+        G = list(self.GRADES.items())
+        G.sort(key = lambda x: x[1]['hit_window'])
+        print(G)
+
+        for grade in G:
+            target_distance = grade[1]['hit_window']
+            score = grade[1]['score']
+            if distance <= float(target_distance):
+                self.score += score * self.combo_modifier
+                self.combo_counter += 1
+                self.last_grade = grade[0]
+                if score == 0:
+                    self.combo_counter = 0
+                break
+                #print(distance, float(target_distance)) 
+            
+        
+        #print(self.score, self.combo_modifier, distance)
+        self._update_combo_modifier()
+
+    def _update_combo_modifier(self):
+        for threshold, multiplier in self.COMBOS.items():
+            if self.combo_counter >= threshold:
+                self.combo_modifier = multiplier
+    
+    def draw_score(self):
+        #ВРЕМЕННО
+        font = pygame.font.Font(None, 36)
+        score = font.render(str(self.score), True, (0, 0, 0))
+        game.screen.blit(score, (50, 50))
+        modifier = font.render(str(self.combo_modifier), True, (0, 0, 0))
+        game.screen.blit(modifier, (50, 100))
+        modifier = font.render(str(self.last_grade), True, (0, 0, 0))
+        game.screen.blit(modifier, (50, 150))
+
+
 
 class Game:
-    begining = [
-        (4,[0, 0, 0, 0, 0]),
-        (1,[1, 0, 0, 0, 0]),
-        (1,[1, 0, 0, 0, 0]),
-        (1,[1, 0, 0, 0, 0]),
-        (1,[1, 0, 0, 0, 0]),]
     
-    seg_A = [
-        (2, [1, 0, 0, 0, 0]), (1, [0, 1, 0, 0, 0]), (3, [0, 0, 1, 0, 0]),
-        (1, [0, 1, 0, 0, 0]), (1, [0, 0, 1, 0, 0]), (2, [1, 0, 0, 0, 0]),
-        (2, [0, 1, 0, 0, 0]), (2, [0, 0, 0, 0, 1]), (2, [0, 0, 0, 1, 0]),]
-    
-    seg_B = [
-        (8, [1, 0, 1, 0, 1]), (4, [0, 1, 0, 1, 0]), (2, [0, 0, 0, 1, 0]), (2, [0, 0, 0, 0, 1]),]
-    
-    seg_C = [
-        (8, [1, 0, 1, 0, 1]), (3, [0, 1, 0, 1, 0]), (3, [0, 0, 0, 1, 0]), (2, [0, 1, 0, 0, 0]),]
-    
-    seg_D = [(6, [1, 0, 1, 0, 1]), (10, [0, 1, 0, 1, 0]), (6, [1, 0, 1, 0, 1]), (10, [0, 1, 0, 1, 0])]
-    seg_E = [(6, [1, 0, 1, 0, 1]), (2, [0, 1, 0, 1, 0]), (4, [0, 1, 0, 1, 0]), (4, [0, 1, 0, 1, 0]),
-             (4, [1, 1, 0, 0, 0]), (4, [0, 1, 1, 0, 0]), (4, [0, 0, 0, 1, 1]), (4, [0, 0, 1, 1, 0])]
-    seg_F = [(6, [1, 0, 1, 0, 1]), (10, [0, 1, 0, 1, 0]), (8, [0, 1, 0, 1, 0]), (8, [0, 1, 0, 1, 0])]
-    
-    seg_T = seg_D + seg_E + seg_D + seg_F
-    playlist1 = begining + seg_A + seg_B + seg_A + seg_B + seg_A + seg_B + seg_A + seg_C + seg_T + seg_T
-
     def __init__(self):
         pygame.init()
         self.clock = pygame.time.Clock()
         self.screen = pygame.display.set_mode((800, 1000))
         self.running = True
         self.all_sprites = pygame.sprite.Group()
-        self.master = ProjectileMaster(self)
+        self.note_master = NoteMaster(self)
+        self.score_master = ScoreMaster(self)
         self.load_images()
 
     def load_images(self):
@@ -160,17 +209,18 @@ class Game:
                 if event.type == pygame.QUIT:
                     self.running = False
                 if event.type == pygame.KEYDOWN:
-                    if event.key in self.master.ORIGINS_BINDS:
-                        self.master.handle_input(event.key, current_song_time)
+                    if event.key in self.note_master.ORIGINS_BINDS:
+                        self.note_master.handle_input(event.key, current_song_time)
 
-            self.master.update_beats(current_song_time)
+            self.note_master.update_beats(current_song_time)
 
-            for proj in self.master.projectiles.sprites():
+            for proj in self.note_master.notes.sprites():
                 proj.move()
 
-            self.master.check_misses()
+            self.note_master.check_misses()
 
             self.all_sprites.draw(self.screen)
+            self.score_master.draw_score()
             pygame.display.flip()
 
             dt = self.clock.tick(60) / 1000
