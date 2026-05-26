@@ -46,13 +46,17 @@ class Tail(Sprite):
         self.is_active = True
 
 class HoldNote(Note):
+    distance_per_beat = 900 / 8
+    distance_per_16 = distance_per_beat/4
+    
     def __init__(self, master, origin, head_sprite, head_groups, origin_time, duration, tail_sprite, tail_groups):
         super().__init__(master, origin, head_sprite, head_groups, origin_time)
-        self.tails = [Tail((self.rect.centerx, self.rect.centery - i * 64), tail_sprite, tail_groups) for i in range(1, duration+1)]
+        tail_sprite = pygame.transform.scale(tail_sprite, (64, self.distance_per_16))
+        self.tails = [Tail((self.rect.centerx, self.rect.centery - i * self.distance_per_16), tail_sprite, tail_groups) for i in range(duration*4)]
     
     def _move_tail(self):
         for i, tail in enumerate(self.tails):
-            tail.rect.center = (self.rect.centerx, self.rect.centery - i * 64)
+            tail.rect.center = (self.rect.centerx, self.rect.centery - i * self.distance_per_16)
 
     def kill(self):
         super().kill()
@@ -75,7 +79,6 @@ class NoteMaster:
 
         self.key_cooldowns = {k: 0.0 for k in self.ORIGINS_BINDS}
         self.input_cooldown = 0.25
-        self.hit_window = 100
 
         self.hitbox_image = pygame.image.load(r"sprites\ph-master-hb.png").convert_alpha()
         self.score_line = Sprite((400, 900), self.hitbox_image, self.game.all_sprites)
@@ -121,14 +124,31 @@ class NoteMaster:
         for proj in self.notes.sprites():
             if proj.origin == origin_idx and type(proj) == TapNote:
                 dist = abs(proj.hitbox_rect.centery - target_y)
-                if dist < min_dist and dist <= self.hit_window:
+
+                hit_windows = [grade['hit_window'] for grade in self.game.score_master.GRADES if grade['hit_window'] != float('inf')]
+                hit_window = max(hit_windows)
+
+                if dist < min_dist and dist <= hit_window:
+                    min_dist = dist
+                    closest_proj = proj
+
+            if proj.origin == origin_idx and type(proj) == HoldNote:
+                for i, tail in enumerate(proj.tails):
+                    if i == len(proj.tails) - 1: last_tail = tail
+                dist = abs(last_tail.rect.centery - target_y)
+
+                hit_windows = [grade['hit_window'] for grade in self.game.score_master.GRADES if grade['hit_window'] != float('inf')]
+                hit_window = max(hit_windows)
+
+                if dist < min_dist and dist <= hit_window:
                     min_dist = dist
                     closest_proj = proj
 
         if closest_proj:
-            closest_proj.kill()
+            if type(closest_proj) == TapNote: closest_proj.kill()
             self.game.score_master.judge(min_dist)
-            self.key_cooldowns[key] = current_time + self.input_cooldown
+
+        self.key_cooldowns[key] = current_time + self.input_cooldown
 
     def check_states(self):
         self._check_holds()
@@ -139,11 +159,11 @@ class NoteMaster:
             if type(note) == TapNote:
                 if note.hitbox_rect.bottom > self.miss_line.top:
                     note.kill()
-                    self.game.score_master.judge(-1.0)
+                    self.game.score_master.judge('miss')
             elif type(note) == HoldNote:
                 for i, tail in enumerate(note.tails):
                     if tail.rect.bottom > self.miss_line.top and tail.is_active:
-                        self.game.score_master.judge(-1.0)
+                        self.game.score_master.judge('miss')
                         tail.is_active = False
                     if i == len(note.tails) - 1 and tail.rect.top > self.miss_line.top:
                         note.kill()
@@ -157,29 +177,33 @@ class NoteMaster:
                         self.game.score_master.judge('hold')
                         tail.is_active = False
 class ScoreMaster:
-    GRADES = {
-        'perfect': {
+    GRADES = [
+            {
+            'grade' : 'perfect',
             'hit_window': 40.0,
-            'score': 50, 
+            'score': 50,
             },
-        'good': {
+            {
+            'grade' : 'great',
             'hit_window': 60.0,
             'score': 25, 
             },
-        'normal': {
+            {
+            'grade' : 'normal', 
             'hit_window': 100.0,
             'score': 10, 
             },
-        'miss': { #!!
-            'hit_window': -1.0,
+            { 
+            'grade' : 'miss',
+            'hit_window': float('inf'),
             'score': 0, 
             },
-        'hold': #!!
             {
-            'hit_window': 0.0,
+            'grade' : 'hold',
+            'hit_window': float('inf'),
             'score': 5, 
-            },
-        }
+            },        
+            ]
     
     COMBOS = {
         0: 1,
@@ -195,28 +219,28 @@ class ScoreMaster:
         self.combo_modifier = 1
         self.last_grade = ''
 
-    def judge(self, distance):
-            match distance:
+    def judge(self, note_state):
+            match note_state:
                 case float():
-                    G = list(self.GRADES.items())
-                    G.sort(key = lambda x: x[1]['hit_window'])
+                    G = sorted(self.GRADES, key = lambda x: x['hit_window'])
                     #print(G)
 
                     for grade in G:
-                        target_distance, score = grade[1]['hit_window'], grade[1]['score']
-                        if distance <= float(target_distance):
+                        target_distance, score = grade['hit_window'], grade['score']
+                        if target_distance and note_state <= target_distance:
                             self.score += score * self.combo_modifier
                             self.combo_counter += 1
-                            self.last_grade = grade[0]
-                            if score == 0: #!!
-                                self.combo_counter = 0
+                            self.last_grade = grade['grade']
                             break
                             #print(distance, float(target_distance)) 
                     #print(self.score, self.combo_modifier, distance)
                     
-                case str(): #!!
-                    score = self.GRADES[distance]['score']
+                case str():
+                    for grade in self.GRADES:
+                        if grade['grade'] == note_state:
+                            score = grade['score']            
                     self.score += score * self.combo_modifier
+                    if note_state == 'miss': self.combo_counter = 0
 
             self._update_combo_modifier()
 
@@ -264,7 +288,7 @@ class Game:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
-                if event.type == pygame.KEYDOWN:
+                if event.type == pygame.KEYDOWN or event.type == pygame.KEYUP:
                     if event.key in self.note_master.ORIGINS_BINDS:
                         self.note_master.handle_input(event.key, current_song_time)
 
