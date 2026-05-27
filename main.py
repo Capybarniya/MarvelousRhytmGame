@@ -80,7 +80,7 @@ class NoteMaster:
         self.key_cooldowns = {k: 0.0 for k in self.ORIGINS_BINDS}
         self.input_cooldown = 0.25
 
-        self.hitbox_image = pygame.image.load(r"sprites\ph-master-hb.png").convert_alpha()
+        self.hitbox_image = pygame.image.load(r"sprites\rhythm\ph-master-hb.png").convert_alpha()
         self.score_line = Sprite((400, 900), self.hitbox_image, self.game.all_sprites)
         self.miss_line = pygame.Rect(200, 975, 400, 1)
 
@@ -117,7 +117,7 @@ class NoteMaster:
             return
 
         origin_idx = self.ORIGINS_BINDS.index(key)
-        target_y = self.score_line.rect.centery
+        target_y = self.score_line.rect.top
         closest_proj = None
         min_dist = float('inf')
 
@@ -272,9 +272,9 @@ class Game:
         self.load_images()
 
     def load_images(self):
-        self.ph_image = pygame.image.load(r"sprites\ph-1.png").convert_alpha()
+        self.ph_image = pygame.image.load(r"sprites\rhythm\ph-1.png").convert_alpha()
         self.ph_image = pygame.transform.scale(self.ph_image, (self.ph_image.get_width() * 2, self.ph_image.get_height() * 2))
-        self.ph_hold_image = pygame.image.load(r"sprites\ph-hold.png").convert_alpha()
+        self.ph_hold_image = pygame.image.load(r"sprites\rhythm\ph-hold.png").convert_alpha()
 
     def run(self):
         pygame.mixer.music.play()
