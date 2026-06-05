@@ -190,18 +190,28 @@ class Player(Sprite):
             dir = (0, -1)
 
         if self.is_atacked:
-            for enemy in self.level_master.game.enemy_sprites :
+            atacker = None
+            for enemy in self.level_master.game.enemy_sprites:
                 if enemy.is_atacking:
                     atacker = enemy
-
-            atack_dir = tools.coords_sum((-1*self.tile_pos[0], -1*self.tile_pos[1]), atacker.tile_pos)
-            if atack_dir == dir:
-                atacker.hp -= 1
-                if atacker.hp <= 0:
-                    atacker.kill()
+                    break
+            
+            if atacker is not None:
+                atack_dir = tools.coords_sum((-1*self.tile_pos[0], -1*self.tile_pos[1]), atacker.tile_pos)
+                if atack_dir == dir:
+                    atacker.hp -= 1
+                    if atacker.hp <= 0:
+                        atacker.kill()
+                        self.is_atacked = False
+                    else:
+                        self.is_atacked = False 
+                        atacker.is_atacking = False
+                else:
+                    self.hp -= 1
                     self.is_atacked = False
+                    atacker.is_atacking = False
             else:
-                self.hp -= 1
+                self.is_atacked = False
         else:
             new_tile_pos = tools.coords_sum(dir, self.tile_pos)
             enemy = self.level_master.is_occupied_by_enemy(new_tile_pos)
@@ -211,8 +221,14 @@ class Player(Sprite):
                 if enemy.hp <= 0:
                     enemy.kill()
             else:
-                if self.level_master.is_tile_door(new_tile_pos): self.level_master.change_room(self.level_master.current_room_coords + dir)
-                if self.level_master.is_tile_movable(new_tile_pos): self.tile_pos = new_tile_pos
+                door = self.level_master.get_door(new_tile_pos)
+                if door: 
+                    #print(self.level_master.current_room_coords + dir)
+                    self.level_master.change_room(tools.coords_sum(self.level_master.current_room_coords, dir))
+                    self.tile_pos = self.level_master.get_pair_pos_from_door(door)
+                    print(self.tile_pos)
+                elif self.level_master.is_tile_movable(new_tile_pos): 
+                    self.tile_pos = new_tile_pos
 
                 self.rect.center = self.level_master.get_pos_from_tile(self.tile_pos)
 
@@ -226,7 +242,7 @@ class LevelMaster:
     def __init__(self, game):
         self.game = game
 
-        self.player = Player(self.get_pos_from_tile((2, 2)), self.game.ph_image, (self.game.all_sprites, self.game.player_sprites), self)
+        self.player = Player((-100, -100), self.game.ph_image, (self.game.all_sprites, self.game.player_sprites), self)
 
         level_generator = LevelGenerator()
         level_generator.generate_level()
@@ -235,16 +251,31 @@ class LevelMaster:
         self.current_room_coords = (4, 4)
         self.change_room((4, 4))
 
+        self.player.tile_pos = (2, 2)
+
     def change_room(self, coords):
-        tiles = self.room_variants[coords[0]][coords[1]]
-        #tiles = [[random.randint(0, 1) for _ in range(self.LEVEL_DIMS[0])] for _ in range(self.LEVEL_DIMS[1])]
-        self.LEVEL_DIMS = (len(tiles[0]), len(tiles))
-        #self.LEVEL_ORIGIN = ((13-self.LEVEL_DIMS[0])*self.TILE_SIZE, (10-self.LEVEL_DIMS[1])*self.TILE_SIZE)
+        x, y = coords[0], coords[1]
         
-        self.INDENT = (self.TILE_SIZE/2, self.TILE_SIZE/2)
-        self.TILES_ORIGIN = tools.coords_sum(self.LEVEL_ORIGIN, self.INDENT)
-        self.tiles = []
-        self.enemy_spawn_points = []
+        self._kill_room()
+        self.current_room_coords = coords
+        
+        room_data = self.room_variants[y][x]
+
+        tiles = room_data
+        room_width_tiles = len(tiles[0])
+        room_height_tiles = len(tiles)
+        self.LEVEL_DIMS = (room_width_tiles, room_height_tiles)
+        
+        room_width_px = room_width_tiles * self.TILE_SIZE
+        room_height_px = room_height_tiles * self.TILE_SIZE
+        screen_width = self.game.screen.get_width()
+        screen_height = self.game.screen.get_height()
+        
+        offset_x = (screen_width - room_width_px) / 2
+        offset_y = (screen_height - room_height_px) / 2
+        
+        self.INDENT = (self.TILE_SIZE / 2, self.TILE_SIZE / 2)
+        self.TILES_ORIGIN = (offset_x + self.INDENT[0], offset_y + self.INDENT[1])
 
         for i in range(len(tiles)):
             row = []
@@ -260,18 +291,27 @@ class LevelMaster:
                         if tile == 'e_chaser':  
                             self.enemy_spawn_points.append((Chaser, (j, i)))
                             row.append(Cell((tools.coords_sum(self.TILES_ORIGIN, (self.TILE_SIZE*j, self.TILE_SIZE*i))), self.game.cell_image, (self.game.all_sprites, self.game.level_sprites)))
-                        if tile == 'e_bomber':
+                        elif tile == 'e_bomber':
                             self.enemy_spawn_points.append((Bomber, (j, i)))
                             row.append(Cell((tools.coords_sum(self.TILES_ORIGIN, (self.TILE_SIZE*j, self.TILE_SIZE*i))), self.game.cell_image, (self.game.all_sprites, self.game.level_sprites)))
-                        if tile == 'e_bomb':
+                        elif tile == 'e_bomb':
                             self.enemy_spawn_points.append((Bomb, (j, i)))
                             row.append(Cell((tools.coords_sum(self.TILES_ORIGIN, (self.TILE_SIZE*j, self.TILE_SIZE*i))), self.game.cell_image, (self.game.all_sprites, self.game.level_sprites)))
-                        if tile.split('_')[-1] == 'door':
+                        elif tile.split('_')[-1] == 'door':
                             row.append(Door((tools.coords_sum(self.TILES_ORIGIN, (self.TILE_SIZE*j, self.TILE_SIZE*i))), self.game.cell_image, (self.game.all_sprites, self.game.level_sprites), tile.split('_')[0]))
-                        
+                        else:
+                            print(f"Warning: Unknown tile string '{tile}' at y={i}, x={j}. Defaulting to Cell.")
+                            row.append(Cell((tools.coords_sum(self.TILES_ORIGIN, (self.TILE_SIZE*j, self.TILE_SIZE*i))), self.game.cell_image, (self.game.all_sprites, self.game.level_sprites)))
             self.tiles.append(row)
             
         self._create_enemies()
+
+    def _kill_room(self):
+        self.game.level_sprites.empty()
+        self.game.enemy_sprites.empty()
+        self.game.effect_sprites.empty()
+        self.tiles = []
+        self.enemy_spawn_points = []
 
     def _create_enemies(self):
         for enemy_type, spawn_pos in self.enemy_spawn_points:
@@ -282,28 +322,50 @@ class LevelMaster:
             elif enemy_type == Chaser:
                 enemy = Chaser(pixel_pos, self.game.chaser_image, (self.game.all_sprites, self.game.enemy_sprites), self, self.player)
             elif enemy_type == Bomb:
-                enemy = Chaser(pixel_pos, self.game.bomb_image, (self.game.all_sprites, self.game.enemy_sprites), self, self.player)
+                enemy = Bomb(pixel_pos, self.game.bomb_image, (self.game.all_sprites, self.game.enemy_sprites), self, self.player)
             enemy.tile_pos = spawn_pos
 
     def get_pos_from_tile(self, tile_pos):
         return tools.coords_sum(self.TILES_ORIGIN, (tile_pos[0] * self.TILE_SIZE, tile_pos[1] * self.TILE_SIZE))
     
-    def is_tile_movable(self, tile_pos):
+    def get_door(self, tile_pos):
+        tile = self.tiles[tile_pos[1]][tile_pos[0]]
+        if type(tile) == Door:
+            return tile
+        
+        return False
+
+    def get_pair_pos_from_door(self, door):
+        pairs = {
+            'right': 'left',
+            'left': 'right',
+            'top': 'down',
+            'down': 'top',
+        }
+        print(self.current_room_coords)
+        print(self.room_variants[self.current_room_coords[0]][self.current_room_coords[1]])
+        new_door_dir = pairs[door.direction]
+        for i in range(len(self.tiles)):     
+            for j in range(len(self.tiles[i])): 
+                tile = self.tiles[i][j]        
+                if type(tile) == Door and new_door_dir == tile.direction:
+                    print(tile.direction, new_door_dir)
+                    return (j, i)
+        return (2, 2)
+    
+    def is_tile_movable(self, tile_pos, check_for_enemies=True):
         for i in range(len(self.LEVEL_DIMS)):
             if tile_pos[i] < 0 or tile_pos[i] >= self.LEVEL_DIMS[i]:
                 return False
             
         tile = self.tiles[tile_pos[1]][tile_pos[0]]
 
-        if tile.is_movable and not self.is_occupied_by_enemy(tile_pos):
-            return True
-        
-        return False
-    
-    def is_tile_door(self, tile_pos):
-        tile = self.tiles[tile_pos[0]][tile_pos[1]]
-        if type(tile) == Door:
-            return True
+        if check_for_enemies:
+            if tile.is_movable and not self.is_occupied_by_enemy(tile_pos):
+                return True
+        else:
+            if tile.is_movable:
+                return True
         
         return False
     
@@ -349,7 +411,7 @@ class LevelMaster:
                 if neighbor in closed_set:
                     continue
                 
-                if not self.is_tile_movable(neighbor):
+                if not self.is_tile_movable(neighbor, check_for_enemies=False):
                     continue
                 
                 tentative_g_score = g_score[current] + 1
@@ -402,7 +464,7 @@ class LevelMaster:
             for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
                 neighbor = (current_pos[0] + dx, current_pos[1] + dy)
                 
-                if self.is_tile_movable(neighbor) and neighbor not in visited:
+                if self.is_tile_movable(neighbor, check_for_enemies=False) and neighbor not in visited:
                     visited[neighbor] = True
                     queue.append((neighbor, distance + 1))
         
