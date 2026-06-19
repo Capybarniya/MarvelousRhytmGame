@@ -2,8 +2,8 @@ import random
 
 import pygame
 
-import tools
-from level_generator import*
+import utils.tools as tools
+from utils.level_generator import*
 
 class Sprite(pygame.sprite.Sprite):
     def __init__(self, pos, sprite, groups):
@@ -203,13 +203,8 @@ class Player(Sprite):
                     if atacker.hp <= 0:
                         atacker.kill()
                         self.is_atacked = False
-                    else:
-                        self.is_atacked = False 
-                        atacker.is_atacking = False
                 else:
                     self.hp -= 1
-                    self.is_atacked = False
-                    atacker.is_atacking = False
             else:
                 self.is_atacked = False
         else:
