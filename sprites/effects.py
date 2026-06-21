@@ -12,10 +12,9 @@ class Effect(Sprite):
             self.kill()
 
 class EffectSpawner():
-    def __init__(self, assets, all_sprites_group, effect_sprites_group):
+    def __init__(self, assets, effect_sprites_group):
         self.bomb_effect_image = assets.get_image(BOMB_EFFECT_IMAGE)
-        self.all_sprites = all_sprites_group
         self.effect_sprites = effect_sprites_group
 
     def spawn_bomb_effect(self, pos):
-        Effect(pos, self.bomb_effect_image, (self.all_sprites, self.effect_sprites))
+        Effect(pos, self.bomb_effect_image, (self.effect_sprites))

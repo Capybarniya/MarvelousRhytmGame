@@ -26,6 +26,14 @@ room4 = [[0, 0, 0, 0, 0, 0, 0, 0, 0,],
          [0, 1, 0, 0, 1, 0, 0, 1, 0,],
          [0, 0, 0, 0, 0, 0, 0, 0, 0,],]
 
+final_room = [[0, 0, 0, 0, 0, 0, 0, 0, 0,],
+         [0, 1, 0, 0, 1, 0, 0, 1, 0,],
+         [0, 0, 0, 0, 'shrine', 0, 0, 0, 0,],
+         [0, 0, 0, 'shrine', 1, 'shrine', 0, 0, 0,],
+         [0, 0, 0, 0, 'shrine', 0, 0, 0, 0,],
+         [0, 1, 0, 0, 1, 0, 0, 1, 0,],
+         [0, 0, 0, 0, 0, 0, 0, 0, 0,],]
+
 
 class LevelGenerator:
     VARIANTS = [room1, room2, room3, room4]
@@ -63,7 +71,12 @@ class LevelGenerator:
     def _generate_room_variants(self):
         for y in range(1, 8):
             for x in range(1, 8):
-                if self.rooms[y][x]:
+                if (x, y) == (4, 4):
+                    var = final_room
+                    var = self.create_borders(var, (x, y))
+                    self.room_variants[y][x] = var
+                    print(var)
+                elif self.rooms[y][x]:
                     var = self.VARIANTS[randint(0, len(self.VARIANTS)-1)]
                     var = self.create_borders(var, (x, y))
                     self.room_variants[y][x] = var

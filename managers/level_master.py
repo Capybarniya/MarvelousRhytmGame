@@ -1,31 +1,39 @@
-from sprites import Wall, Cell, Door
+from sprites import Wall, Cell, Door, Shrine
 from sprites import Chaser, Bomber, Bomb, Player
 from sprites import Effect, EffectSpawner
 from utils import a_star_search, get_furthest_tile, LevelGenerator
 from utils import tools
+from settings import *
 
 class LevelMaster:
     TILE_SIZE = 64
     LEVEL_ORIGIN = (TILE_SIZE, TILE_SIZE)
     
-    def __init__(self, game):
-        self.game = game
-        self.assets = game.asset_master
-        self.player = Player((-100, -100), self.assets, (self.game.all_sprites, self.game.player_sprites), self)
+    def __init__(self, game_mode, assets):
+        self.game = game_mode
+        self.assets = assets
+        self.player = Player((-100, -100), self.assets, (self.game.player_sprites), self)
+        self.effect_spawner = EffectSpawner(self.assets, self.game.effect_sprites)
+        
+        self.generator = None
+        self.visited_rooms = set()
 
-        self.effect_spawner = EffectSpawner(self.assets, self.game.all_sprites, self.game.effect_sprites)
+    def generate_level(self):
+        self.generator = LevelGenerator()
+        self.generator.generate_level()
+        self.level = self.generator.rooms
+        self.room_variants = self.generator.room_variants
 
-        level_generator = LevelGenerator()
-        level_generator.generate_level()
-        self.level = level_generator.rooms
-        self.room_variants = level_generator.room_variants
+    def start(self):
         self.current_room_coords = (4, 4)
+        self.visited_rooms.add(self.current_room_coords)
         self.change_room((4, 4))
-
         self.player.tile_pos = (2, 2)
-
+    
     def change_room(self, coords):
         x, y = coords[0], coords[1]
+        
+        self.visited_rooms.add(coords)
         
         self._kill_room()
         self.current_room_coords = coords
@@ -39,8 +47,8 @@ class LevelMaster:
         
         room_width_px = room_width_tiles * self.TILE_SIZE
         room_height_px = room_height_tiles * self.TILE_SIZE
-        screen_width = self.game.screen.get_width()
-        screen_height = self.game.screen.get_height()
+        screen_width = SCREEN_WIDTH
+        screen_height = SCREEN_HEIGHT
         
         offset_x = (screen_width - room_width_px) / 2
         offset_y = (screen_height - room_height_px) / 2
@@ -53,7 +61,7 @@ class LevelMaster:
             for j in range(len(tiles[0])):
                 tile = tiles[i][j]
                 tile_pos = (tools.coords_sum(self.TILES_ORIGIN, (self.TILE_SIZE*j, self.TILE_SIZE*i)))
-                level_groups = (self.game.all_sprites, self.game.level_sprites)
+                level_groups = (self.game.level_sprites)
                 match tile:
                     case int():
                         if tile == 1:
@@ -72,6 +80,8 @@ class LevelMaster:
                             row.append(Cell(tile_pos, self.assets, level_groups))
                         elif tile.split('_')[-1] == 'door':
                             row.append(Door(tile_pos, self.assets, level_groups, tile.split('_')[0]))
+                        elif tile == 'shrine':
+                            row.append(Shrine(tile_pos, self.assets, level_groups))
                         else:
                             print(f"ошибка парсинга, замена ячейкой")
                             row.append(Cell(tile_pos, self.assets, level_groups))
@@ -89,7 +99,7 @@ class LevelMaster:
     def _create_enemies(self):
         for enemy_type, spawn_pos in self.enemy_spawn_points:
             pixel_pos = self.get_pos_from_tile(spawn_pos)
-            enemy_groups = (self.game.all_sprites, self.game.enemy_sprites)
+            enemy_groups = (self.game.enemy_sprites)
             
             if enemy_type == Bomber:
                 enemy = Bomber(pixel_pos, self.assets, enemy_groups, self, self.player)
@@ -116,14 +126,11 @@ class LevelMaster:
             'top': 'down',
             'down': 'top',
         }
-        #print(self.current_room_coords)
-        #print(self.room_variants[self.current_room_coords[0]][self.current_room_coords[1]])
         new_door_dir = pairs[door.direction]
         for i in range(len(self.tiles)):     
             for j in range(len(self.tiles[i])): 
                 tile = self.tiles[i][j]        
                 if type(tile) == Door and new_door_dir == tile.direction:
-                    print(tile.direction, new_door_dir)
                     return (j, i)
         return (2, 2)
     
@@ -153,5 +160,13 @@ class LevelMaster:
         return tile_pos == self.player.tile_pos
     
     def create_bomb(self, tile_pos):
-        bomb = Bomb(self.get_pos_from_tile(tile_pos), self.assets, (self.game.all_sprites, self.game.enemy_sprites), self, self.player, self.effect_spawner)
+        bomb = Bomb(self.get_pos_from_tile(tile_pos), self.assets, (self.game.enemy_sprites), self, self.player, self.effect_spawner)
         bomb.tile_pos = tile_pos
+
+    def cleanup(self): pass
+
+    def check_for_shrine(self, tile_pos):
+        tile = self.tiles[tile_pos[1]][tile_pos[0]]
+        if type(tile) == Shrine:
+            exit_event = pygame.event.Event(SHRINE_FOUND_EVENT)
+            pygame.event.post(exit_event)

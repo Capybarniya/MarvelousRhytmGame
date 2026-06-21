@@ -22,4 +22,9 @@ class Door(Tile):
     def __init__(self, pos, assets, groups, direction):
         sprite = assets.get_image(CELL_IMAGE)
         super().__init__(pos, sprite, groups)
-        self.direction = direction 
+        self.direction = direction
+
+class Shrine(Tile):
+    def __init__(self, pos, assets, groups):
+        sprite = assets.get_image(SHRINE_IMAGE)
+        super().__init__(pos, sprite, groups)

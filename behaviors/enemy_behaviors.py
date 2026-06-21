@@ -4,27 +4,28 @@ class EnemyBehavior:
     def __init__(self, enemy):
         self.enemy = enemy
 
-    def get_next_action(self):
+    def apply_next_action(self):
         pass
 
 class ChaserBehavior(EnemyBehavior):
     def __init__(self, enemy):
         super().__init__(enemy)
 
-    def get_next_action(self):
-        if heuristic(self.enemy.tile_pos, self.enemy.player.tile_pos) <= 1:
-            if not self.enemy.player.is_atacked:
-                self.enemy.atack()
-            else:
-                pass
-        else:
+    def apply_next_action(self):
+        if self.enemy.duel_cooldown > 0:
             self.enemy.move()
+            return
+
+        if heuristic(self.enemy.tile_pos, self.enemy.player.tile_pos) <= 1:
+            return
+            
+        self.enemy.move()
 
 class BomberBehavior(EnemyBehavior):
     def __init__(self, enemy):
         super().__init__(enemy)
 
-    def get_next_action(self):
+    def apply_next_action(self):
         if self.enemy.bomb_cooldown == 0:
             if heuristic(self.enemy.tile_pos, self.enemy.player.tile_pos) < 3:
                 self.enemy.create_bomb()
@@ -45,7 +46,7 @@ class BombBehavior(EnemyBehavior):
     def __init__(self, enemy):
         super().__init__(enemy)
 
-    def get_next_action(self):
+    def apply_next_action(self):
         if self.enemy.timer == 0:
             self.enemy.explode()
         else:

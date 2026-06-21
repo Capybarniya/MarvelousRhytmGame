@@ -37,6 +37,10 @@ class Enemy(Sprite):
         
         return False
     
+    def update(self, current_beat):
+        if self.is_alive and current_beat % self.speed == 0:
+            self.behavior.apply_next_action()
+    
     def kill(self):
         super().kill()
         self.is_alive = False
@@ -47,13 +51,43 @@ class Chaser(Enemy):
         self.attacking_sprite = assets.get_image(CHASER_ATTACKING_IMAGE)
         super().__init__(pos, self.idle_sprite, groups, level_master, player)
         self.behavior = ChaserBehavior(self)
-        self.speed = QUARTER_NOTE*2
+        self.speed = QUARTER_NOTE * 2
         self.hp = 3
+        
+        self.duel_cooldown = 0 
 
-    def atack(self):
+    def start_duel(self):
         self.is_atacking = True
-        self.player.is_atacked = True
         self.image = self.attacking_sprite
+
+    def end_duel(self):
+        self.is_atacking = False
+        self.image = self.idle_sprite
+        self.duel_cooldown = 2
+        self.step_back()
+
+    def step_back(self):
+        dx = self.tile_pos[0] - self.player.tile_pos[0]
+        dy = self.tile_pos[1] - self.player.tile_pos[1]
+        
+        if dx != 0:
+            step = (1 if dx > 0 else -1, 0)
+        elif dy != 0:
+            step = (0, 1 if dy > 0 else -1)
+        else:
+            return
+        
+        new_pos = (self.tile_pos[0] + step[0], self.tile_pos[1] + step[1])
+        
+        if self.level_master.is_tile_movable(new_pos) and not self.level_master.is_occupied_by_enemy(new_pos):
+            self.tile_pos = new_pos
+            self.rect.center = self.level_master.get_pos_from_tile(self.tile_pos)
+
+    def update(self, current_beat):
+        if self.is_alive and current_beat % self.speed == 0:
+            if self.duel_cooldown > 0:
+                self.duel_cooldown -= 1
+            self.behavior.apply_next_action()
         
 class Bomber(Enemy):
     def __init__(self, pos, assets, groups, level_master, player):
