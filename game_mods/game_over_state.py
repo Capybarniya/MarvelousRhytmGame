@@ -1,5 +1,6 @@
 import pygame
 from game_mods.game_state import GameState
+from game_mods.main_menu_state import MainMenuState
 
 class GameOverState(GameState):
     def enter(self):
@@ -13,7 +14,7 @@ class GameOverState(GameState):
                 return
             
             if event.key == pygame.K_q:
-                self.state_machine.change_state(GameState)
+                self.state_machine.change_state(MainMenuState)
                 return
 
     def render(self, screen):

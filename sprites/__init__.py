@@ -4,3 +4,4 @@ from sprites.player import Player
 from sprites.enemies import Enemy, Chaser, Bomber, Bomb
 from sprites.effects import Effect, EffectSpawner
 from sprites.rhythm import TapNote, HoldNote, Tail, Note
+from sprites.hit_effect import HitEffect

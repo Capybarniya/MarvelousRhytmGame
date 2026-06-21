@@ -1,3 +1,4 @@
+from random import choice
 from sprites import Wall, Cell, Door, Shrine
 from sprites import Chaser, Bomber, Bomb, Player
 from sprites import Effect, EffectSpawner
@@ -28,7 +29,7 @@ class LevelMaster:
         self.current_room_coords = (4, 4)
         self.visited_rooms.add(self.current_room_coords)
         self.change_room((4, 4))
-        self.player.tile_pos = (2, 2)
+        self.player.move_to_the_start_pos()
     
     def change_room(self, coords):
         x, y = coords[0], coords[1]
@@ -53,7 +54,7 @@ class LevelMaster:
         offset_x = (screen_width - room_width_px) / 2
         offset_y = (screen_height - room_height_px) / 2
         
-        self.INDENT = (self.TILE_SIZE / 2, self.TILE_SIZE / 2)
+        self.INDENT = (self.TILE_SIZE / 2, self.TILE_SIZE / 2+64)
         self.TILES_ORIGIN = (offset_x + self.INDENT[0], offset_y + self.INDENT[1])
 
         for i in range(len(tiles)):
@@ -133,6 +134,23 @@ class LevelMaster:
                 if type(tile) == Door and new_door_dir == tile.direction:
                     return (j, i)
         return (2, 2)
+    
+    def get_random_tile(self, tile_pos, check_for_movable=True):
+        x, y = tile_pos
+        directions = [(0, -1), (0, 1), (-1, 0), (1, 0)]
+        candidates = []
+
+        for dx, dy in directions:
+            nx, ny = x + dx, y + dy
+            
+            if 0 <= nx < self.LEVEL_DIMS[0] and 0 <= ny < self.LEVEL_DIMS[1]:
+                if check_for_movable:
+                    if self.is_tile_movable((nx, ny), check_for_enemies=True):
+                        candidates.append((nx, ny))
+                else:
+                    candidates.append((nx, ny))
+
+        return choice(candidates) if candidates else tile_pos
     
     def is_tile_movable(self, tile_pos, check_for_enemies=True):
         for i in range(len(self.LEVEL_DIMS)):

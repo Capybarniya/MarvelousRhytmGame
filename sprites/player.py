@@ -9,13 +9,18 @@ class Player(Sprite):
     def __init__(self, pos, assets, groups, level_master):
         self.idle_image = assets.get_image(PLAYER_IMAGE)
         super().__init__(pos, self.idle_image, groups)
-        self.tile_pos = (2, 2)
+        self.tile_pos = (3, 3)
         self.level_master = level_master
+        
         self.hp = 3
 
         self.locked_by = None
         self.parry_attempted = False
         self.lock_start_beat = -1
+
+    def move_to_the_start_pos(self):
+        self.rect.center = self.level_master.get_pos_from_tile(self.tile_pos)
+
     def update(self, current_beat):
         self._check_game_over()
         self._check_missed_parry(current_beat)
@@ -55,8 +60,8 @@ class Player(Sprite):
             if self.locked_by.hp <= 0:
                 self.locked_by.kill()
             self.resolve_lock()
-        else:
-            self.resolve_lock(player_takes_damage=True)
+        #else:
+        #    self.resolve_lock(player_takes_damage=True)
 
     def resolve_lock(self, player_takes_damage=False):
         if self.locked_by:
@@ -74,7 +79,7 @@ class Player(Sprite):
         if not self.locked_by:
             return
             
-        if current_beat >= self.lock_start_beat + 2:
+        if current_beat >= self.lock_start_beat + QUARTER_NOTE*4:
             if not self.parry_attempted:
                 self.resolve_lock(player_takes_damage=True)
 

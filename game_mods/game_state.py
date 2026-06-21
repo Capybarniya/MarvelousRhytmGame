@@ -2,6 +2,7 @@ class GameState():
     def __init__(self, game, state_machine):
         self.game = game
         self.state_machine = state_machine
+        self.assets = game.asset_master
     
     def enter(self):
         pass

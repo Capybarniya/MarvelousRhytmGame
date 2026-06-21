@@ -12,11 +12,11 @@ class PausedState(GameState):
                 return
             
             if event.key == pygame.K_q:
-                self.state_machine.change_state(GameState)
+                from game_mods.main_menu_state import MainMenuState
+                self.state_machine.change_state(MainMenuState)
                 return
 
     def render(self, screen):
-
         overlay = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, self.pause_alpha))
         screen.blit(overlay, (0, 0))

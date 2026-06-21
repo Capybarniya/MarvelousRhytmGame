@@ -1,6 +1,6 @@
 import pygame
 from managers import AssetMaster
-from game_mods import GameStateMachine, PlayingState
+from game_mods import GameStateMachine, MainMenuState
 from settings import * 
 
 class Game:
@@ -8,12 +8,12 @@ class Game:
         pygame.init()
         self.clock = pygame.time.Clock()
         self.running = True
-        self.screen = pygame.display.set_mode((SCREEN_HEIGHT, SCREEN_WIDTH))
+        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
         self.asset_master = AssetMaster()
 
         self.state_machine = GameStateMachine(self)
-        self.state_machine.push_state(PlayingState)
+        self.state_machine.push_state(MainMenuState)
 
     def run(self):
         while self.running:

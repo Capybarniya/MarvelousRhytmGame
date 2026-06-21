@@ -6,3 +6,4 @@ from game_mods.game_state import GameState
 from game_mods.paused_state import PausedState
 from game_mods.playing_state import PlayingState
 from game_mods.game_over_state import GameOverState
+from game_mods.main_menu_state import MainMenuState

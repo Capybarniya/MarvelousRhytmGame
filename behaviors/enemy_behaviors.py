@@ -12,12 +12,11 @@ class ChaserBehavior(EnemyBehavior):
         super().__init__(enemy)
 
     def apply_next_action(self):
-        if self.enemy.duel_cooldown > 0:
-            self.enemy.move()
+        if heuristic(self.enemy.tile_pos, self.enemy.player.tile_pos) == 1:
             return
-
-        if heuristic(self.enemy.tile_pos, self.enemy.player.tile_pos) <= 1:
-            return
+        if heuristic(self.enemy.tile_pos, self.enemy.player.tile_pos) == 0:
+            self.enemy.move(flee=True)
+            self.enemy.move(flee=True)
             
         self.enemy.move()
 

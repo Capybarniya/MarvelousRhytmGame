@@ -4,6 +4,8 @@ from game_mods.paused_state import PausedState
 from game_mods.dungeon_mode import DungeonMode
 from game_mods.rhythm_mode import RhythmMode
 from game_mods.game_over_state import GameOverState
+from game_mods.victory_state import VictoryState
+from game_mods.hint_state import HintState
 from settings import * 
 
 class PlayingState(GameState):
@@ -31,9 +33,13 @@ class PlayingState(GameState):
                 return
         if event.type == SHRINE_FOUND_EVENT:
             self.state_machine.mode_machine.set_mode(RhythmMode)
+            self.state_machine.push_state(HintState, (HINT_RHYTHM))
             return
         if event.type == GAME_OVER_EVENT:
             self.state_machine.push_state(GameOverState)
+            return
+        if event.type == VICTORY_EVENT:
+            self.state_machine.push_state(VictoryState, (event.score))
             return
         
         self.state_machine.mode_machine.handle_event(event)
@@ -43,6 +49,4 @@ class PlayingState(GameState):
     
     def render(self, screen):
         self.state_machine.mode_machine.render(screen)
-        
-        #self.game.hud.render(screen)
     

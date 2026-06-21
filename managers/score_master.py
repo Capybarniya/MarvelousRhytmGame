@@ -3,18 +3,18 @@ import pygame
 class ScoreMaster:
     GRADES = [
             {
-            'grade' : 'perfect',
+            'grade' : 'PERFECT',
             'hit_window': 40.0,
             'score': 50,
             },
             {
-            'grade' : 'great',
+            'grade' : 'GREAT',
             'hit_window': 60.0,
             'score': 25, 
             },
             {
-            'grade' : 'normal', 
-            'hit_window': 100.0,
+            'grade' : 'NORMAL', 
+            'hit_window': 120.0,
             'score': 10, 
             },
             { 

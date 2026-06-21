@@ -14,7 +14,7 @@ class UIDungeon():
         origin_minimap = (32, 32)
         self.components.append(MiniMap(origin_minimap, assets, level_master))
 
-        origin_timer = coords_sum(origin_health_bar, (-32, 64))
+        origin_timer = coords_sum((SCREEN_WIDTH//2, 0), (-64, 16))
         self.components.append(Timer(origin_timer, assets, music_master))
 
     def draw(self, screen):

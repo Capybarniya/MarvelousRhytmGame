@@ -1,6 +1,6 @@
 import pygame
-from sprites import Sprite, TapNote, HoldNote
-from trashbin import playlists
+from sprites import Sprite, TapNote, HoldNote, HitEffect
+from playlist import PLAYLIST_1
 from settings import *
 
 class NoteMaster:
@@ -16,15 +16,22 @@ class NoteMaster:
         
         self.notes = note_sprites
 
-        self.playlist = playlists.playlist_test
+        self.playlist = PLAYLIST_1
         self.current_line = 0
         self.next_line_time = 0
 
         self.key_cooldowns = {k: 0.0 for k in self.ORIGINS_BINDS}
         self.input_cooldown = 0.25
 
-        self.score_line = Sprite((400, 900), self.assets.get_image(SCORE_LINE_IMAGE), self.game.background_sprites)
-        self.miss_line = pygame.Rect(200, 975, 400, 1)
+        self.score_line = pygame.Rect(0, 815, 1000, 1)
+        self.miss_line = pygame.Rect(0, 900, 1000, 1)
+
+        self.hit_effects = pygame.sprite.Group()
+        self.hit_effects_list = []
+        
+        for x, _ in self.ORIGINS:
+            effect = HitEffect((x, self.score_line.centery), self.assets, self.hit_effects)
+            self.hit_effects_list.append(effect)
 
     def handle_input(self, key):
         current_time = self.music_master.current_song_time
@@ -32,7 +39,7 @@ class NoteMaster:
             return
 
         origin_idx = self.ORIGINS_BINDS.index(key)
-        target_y = self.score_line.rect.top
+        target_y = self.score_line.top
         closest_proj = None
         min_dist = float('inf')
 
@@ -60,17 +67,23 @@ class NoteMaster:
                     closest_proj = proj
 
         if closest_proj:
-            if type(closest_proj) == TapNote: closest_proj.kill()
+            if type(closest_proj) == TapNote: 
+                closest_proj.kill()
+            
             self.game.score_master.judge(min_dist)
+            
+            self.hit_effects_list[origin_idx].trigger('hit')
 
         self.key_cooldowns[key] = current_time + self.input_cooldown
 
     def update(self):
         self._update_beats()
         self._check_states()
+        
+        self.hit_effects.update()
 
     def _update_beats(self):
-        while self.music_master.current_beat < len(self.playlist) and self.music_master.current_song_time >= self.next_line_time:
+        while self.music_master.current_song_time >= self.next_line_time:
             self._spawn_current_beat()
             beat_count, _ = self.playlist[self.current_line]
             self.next_line_time += beat_count * self.music_master.beat_duration
@@ -102,11 +115,17 @@ class NoteMaster:
                 if note.hitbox_rect.bottom > self.miss_line.top:
                     note.kill()
                     self.score_master.judge('miss')
+                    
+                    self.hit_effects_list[note.origin].trigger('miss')
+                    
             elif type(note) == HoldNote:
                 for i, tail in enumerate(note.tails):
                     if tail.rect.bottom > self.miss_line.top and tail.is_active:
                         self.score_master.judge('miss')
                         tail.is_active = False
+                        
+                        self.hit_effects_list[note.origin].trigger('miss')
+                        
                     if i == len(note.tails) - 1 and tail.rect.top > self.miss_line.top:
                         note.kill()
 

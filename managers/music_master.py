@@ -5,9 +5,9 @@ class MusicMaster:
     def __init__(self, assets):
         self.assets = assets
 
-        self.bpm = 104
+        self.bpm = 150
         self.beat_duration = 60 / (self.bpm*QUARTER_NOTE)
-        self.song_duration = 30
+        self.song_duration = 0
         self.current_beat = 0
         self.next_beat_time = 0
         self.hit_window = 0.15
@@ -26,20 +26,24 @@ class MusicMaster:
     
     def update(self):
         self.current_song_time = pygame.mixer.music.get_pos() / 1000.0
-        self._check_game_over()
         while self.current_song_time >= self.next_beat_time:
             self.next_beat_time += self.beat_duration
             self.current_beat += 1
 
-    def start_music(self):
-        pygame.mixer.music.load(self.assets.get_music_path(TEST_MUSIC))
+    def start_music(self, music):
+        pygame.mixer.music.load(self.assets.get_music_path(music))
         pygame.mixer.music.set_volume(0.5)
         pygame.mixer.music.play()
 
-    def _check_game_over(self):
+    def check_if_time_over(self):
         if self.current_song_time > self.song_duration:
-            exit_event = pygame.event.Event(GAME_OVER_EVENT)
-            pygame.event.post(exit_event)
+            return True
+        return False
+                
 
     def get_time_left(self):
         return self.song_duration - self.current_song_time
+    
+    def set_song_duration(self, dur):
+        self.song_duration = dur 
+        

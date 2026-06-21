@@ -34,6 +34,12 @@ final_room = [[0, 0, 0, 0, 0, 0, 0, 0, 0,],
          [0, 1, 0, 0, 1, 0, 0, 1, 0,],
          [0, 0, 0, 0, 0, 0, 0, 0, 0,],]
 
+start_room = [[ 0, 0, 0, 0, 0, ],
+         [ 0, 1, 0, 1, 0, ],
+         [ 0, 0, 0, 0, 0, ],
+         [ 0, 1, 0, 1, 0, ],
+         [ 0, 0, 0, 0, 0, ],]
+
 
 class LevelGenerator:
     VARIANTS = [room1, room2, room3, room4]
@@ -60,19 +66,20 @@ class LevelGenerator:
                     
                     if rooms_nearby > 0:
                         r = random()
-                        raw_chance = 0.1 * (10 - start_room_dist - rooms_nearby * 4) + 0.1
+                        raw_chance = 0.1 * (7 - start_room_dist - rooms_nearby * 4) + 0.1
                         chance = max(0.05, min(1.0, raw_chance))
                         
                         if r <= chance: 
                             self.rooms[y][x] = 1
         
         self._generate_room_variants()
+        self._spawn_final_room()
 
     def _generate_room_variants(self):
         for y in range(1, 8):
             for x in range(1, 8):
                 if (x, y) == (4, 4):
-                    var = final_room
+                    var = start_room
                     var = self.create_borders(var, (x, y))
                     self.room_variants[y][x] = var
                     print(var)
@@ -121,6 +128,22 @@ class LevelGenerator:
             nearby_rooms[1][0] = 1
             
         return nearby_rooms
+    
+    def _spawn_final_room(self):
+        candidates = []
+        
+        for y in range(1, 8):
+            for x in range(1, 8):
+                if self.rooms[y][x] == 1:
+                    dist = self.heuristic((x, y), (4, 4))
+                    if dist >= 2:
+                        candidates.append((x, y))
+        
+        if candidates:
+            final_x, final_y = candidates[randint(0, len(candidates) - 1)]
+            
+            final_var = self.create_borders(final_room, (final_x, final_y))
+            self.room_variants[final_y][final_x] = final_var
                         
 #l_g = LevelGenerator()
 #l_g.generate_level()
